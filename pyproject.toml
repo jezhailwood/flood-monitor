@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E", # pycodestyle error
+    "F", # Pyflakes
+    "I", # isort
+    "B", # flake8-bugbear
+    "UP", # pyupgrade
+    "D", # pydocstyle
+    "D401", # pydocstyle: non-imperative-mood
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
