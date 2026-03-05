@@ -1,9 +1,16 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from operator import itemgetter
-from typing import TYPE_CHECKING, Any
+from operator import attrgetter
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .api_client import APIClient
+
+
+@dataclass(frozen=True, slots=True)
+class Reading:
+    timestamp: datetime
+    level: float
 
 
 class MeasurementStation:
@@ -19,10 +26,10 @@ class MeasurementStation:
         self.catchment_name: str | None = None
         self.lon: float | None = None
         self.lat: float | None = None
-        self.latest_reading: dict[str, Any] | None = None
-        self.highest_recent: dict[str, Any] | None = None
-        self.max_on_record: dict[str, Any] | None = None
-        self.min_on_record: dict[str, Any] | None = None
+        self.latest_reading: Reading | None = None
+        self.highest_recent: Reading | None = None
+        self.max_on_record: Reading | None = None
+        self.min_on_record: Reading | None = None
         self.typical_range_high: float | None = None
         self.typical_range_low: float | None = None
         self.state: str | None = None
@@ -63,7 +70,7 @@ class MeasurementStation:
         if not self._loaded:
             raise RuntimeError("MeasurementStation not loaded. Call load() first.")
 
-    def _build_reading(self, data: dict | None) -> dict[str, Any] | None:
+    def _build_reading(self, data: dict | None) -> Reading | None:
         if data is None:
             return None
 
@@ -72,7 +79,7 @@ class MeasurementStation:
 
         if timestamp is None or level is None:
             return None
-        return {"timestamp": timestamp, "level": level}
+        return Reading(timestamp=timestamp, level=level)
 
     def _parse_timestamp(self, timestamp: str | None) -> datetime | None:
         if timestamp is None:
@@ -93,7 +100,9 @@ class MeasurementStation:
         return round(float(level), self.decimals)
 
     def _get_state(self) -> str:
-        latest_reading_level = (self.latest_reading or {}).get("level")
+        latest_reading_level = (
+            self.latest_reading.level if self.latest_reading else None
+        )
 
         if (
             latest_reading_level is None
@@ -111,7 +120,7 @@ class MeasurementStation:
     def _get_trend(self, threshold: float = 0.01, limit: int = 5) -> str:
         readings = self.get_readings(limit=limit)
 
-        levels = [r["level"] for r in readings]
+        levels = [r.level for r in readings]
 
         if len(levels) < 2:
             return "steady"
@@ -132,7 +141,7 @@ class MeasurementStation:
         days: int | None = None,
         limit: int | None = None,
         reverse: bool = False,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Reading]:
         self._validate_readings_args(start=start, end=end, days=days, limit=limit)
 
         if days is not None:
@@ -157,7 +166,7 @@ class MeasurementStation:
             if reading is not None:
                 readings.append(reading)
 
-        return sorted(readings, key=itemgetter("timestamp"), reverse=reverse)
+        return sorted(readings, key=attrgetter("timestamp"), reverse=reverse)
 
     def _validate_readings_args(
         self,
@@ -214,11 +223,11 @@ class MeasurementStation:
         start: datetime | None,
         end: datetime | None,
         limit: int | None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, str]:
         params = {"parameter": "level"}
 
         if limit is not None:
-            params["_limit"] = limit
+            params["_limit"] = str(limit)
 
         # Most recent readings (no date filter).
         if start is None and end is None:
