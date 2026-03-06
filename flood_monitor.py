@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
+import plotly.express as px
+
 if TYPE_CHECKING:
     from .api_client import APIClient
 
@@ -243,3 +245,14 @@ class MeasurementStation:
         params["startdate"] = start.date().isoformat()
         params["enddate"] = end.date().isoformat()
         return params
+
+    def plot_map(self) -> None:
+        self._require_loaded()
+
+        fig = px.scatter_map(
+            lat=[self.lat],
+            lon=[self.lon],
+            hover_name=[self.label],
+        )
+
+        fig.show()
