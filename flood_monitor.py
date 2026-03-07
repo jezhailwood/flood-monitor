@@ -256,3 +256,22 @@ class MeasurementStation:
         )
 
         fig.show()
+
+    def plot_chart(
+        self,
+        *,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        days: int | None = None,
+    ) -> None:
+        self._require_loaded()
+
+        readings = self.get_readings(start=start, end=end, days=days)
+        timestamps = [r.timestamp for r in readings]
+        levels = [r.level for r in readings]
+
+        fig = px.line(
+            x=timestamps, y=levels, labels={"x": "Timestamp", "y": "Level (m)"}
+        )
+
+        fig.show()
