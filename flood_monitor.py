@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
+import numpy as np
 import plotly.express as px
 
 if TYPE_CHECKING:
@@ -119,19 +120,26 @@ class MeasurementStation:
             return "high"
         return "normal"
 
-    def _get_trend(self, threshold: float = 0.01, limit: int = 5) -> str:
+    def _get_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
         readings = self.get_readings(limit=limit)
 
-        levels = [r.level for r in readings]
+        if len(readings) < 2:
+            return "unknown"
 
-        if len(levels) < 2:
-            return "steady"
+        # Convert cm/h to m/s.
+        threshold_ms = threshold / 360_000
 
-        delta = levels[-1] - levels[0]
+        # Express timestamps as elapsed seconds from the first reading.
+        t0 = readings[0].timestamp.timestamp()
+        x = np.array([r.timestamp.timestamp() - t0 for r in readings])
+        y = np.array([r.level for r in readings])
 
-        if delta > threshold:
+        # slope gives rate of change in m/s.
+        slope, _ = np.polyfit(x, y, 1)
+
+        if slope > threshold_ms:
             return "rising"
-        if delta < -threshold:
+        if slope < -threshold_ms:
             return "falling"
         return "steady"
 
