@@ -20,6 +20,8 @@ class MeasurementStation:
     def __init__(
         self, station_id: str | int, api_client: APIClient, *, decimals: int = 2
     ) -> None:
+        self._validate_station_id(station_id)
+
         self.station_id = station_id
         self.api_client = api_client
         self.decimals = decimals
@@ -39,6 +41,19 @@ class MeasurementStation:
         self.trend: str | None = None
 
         self._loaded = False
+
+    def _validate_station_id(self, station_id: str | int) -> None:
+        if not isinstance(station_id, (str, int)):
+            raise TypeError(
+                f"station_id must be str or int, got {type(station_id).__name__}"
+            )
+        if isinstance(station_id, str):
+            if not station_id.strip():
+                raise ValueError("station_id must not be empty or blank")
+            if station_id != station_id.strip():
+                raise ValueError("station_id must not have surrounding whitespace")
+        if isinstance(station_id, int) and station_id <= 0:
+            raise ValueError("station_id must be a positive integer")
 
     def load(self) -> None:
         data = self.api_client.get(
