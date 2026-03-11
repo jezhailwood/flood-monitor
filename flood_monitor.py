@@ -17,14 +17,11 @@ class Reading:
 
 
 class MeasurementStation:
-    def __init__(
-        self, station_id: str | int, api_client: APIClient, *, decimals: int = 2
-    ) -> None:
+    def __init__(self, station_id: str | int, api_client: APIClient) -> None:
         self._validate_station_id(station_id)
 
         self.station_id = station_id
         self.api_client = api_client
-        self.decimals = decimals
 
         self.label: str | None = None
         self.river_name: str | None = None
@@ -115,7 +112,7 @@ class MeasurementStation:
     def _parse_level(self, level: float | int | None) -> float | None:
         if level is None:
             return None
-        return round(float(level), self.decimals)
+        return float(level)
 
     def _get_state(self) -> str:
         latest_reading_level = (
