@@ -287,11 +287,79 @@ class MeasurementStation:
         self._require_loaded()
 
         readings = self.get_readings(start=start, end=end, days=days)
+        if not readings:
+            raise ValueError("No readings available for the requested time range.")
+
         timestamps = [r.timestamp for r in readings]
         levels = [r.level for r in readings]
 
+        label = self.label or f"station {self.station_id}"
+
         fig = px.line(
-            x=timestamps, y=levels, labels={"x": "Timestamp", "y": "Level (m)"}
+            x=timestamps,
+            y=levels,
+            labels={"x": "Time", "y": "Level (m)"},
+            title=f"River level at {label}",
+            subtitle=self._build_subtitle(),
         )
 
+        fig.update_traces(line={"width": 3, "color": "dodgerblue"}, fill="tozeroy")
+        fig.update_layout(hoverdistance=-1)
+        fig.update_xaxes(
+            tickformat="%H:%M\n%d %b %Y",
+            showspikes=True,
+            spikemode="across",
+            spikethickness=1,
+            spikedash="solid",
+            spikecolor="black",
+        )
+
+        if self.max_on_record is not None:
+            fig.add_hline(
+                y=self.max_on_record.level,
+                annotation_text=(
+                    f"Max on record ({self.max_on_record.level:.2f}m"
+                    f" on {self.max_on_record.timestamp:%d %b %Y})"
+                ),
+                annotation_font_color="black",
+                line_width=1,
+                line_dash="dot",
+                line_color="black",
+            )
+
+        if self.min_on_record is not None:
+            fig.add_hline(
+                y=self.min_on_record.level,
+                annotation_text=(
+                    f"Min on record ({self.min_on_record.level:.2f}m"
+                    f" on {self.min_on_record.timestamp:%d %b %Y})"
+                ),
+                annotation_font_color="black",
+                line_width=1,
+                line_dash="dot",
+                line_color="black",
+            )
+
+        if (
+            self.typical_range_low is not None
+            and self.typical_range_high is not None
+            and self.typical_range_low <= self.typical_range_high
+        ):
+            fig.add_hrect(
+                y0=self.typical_range_low,
+                y1=self.typical_range_high,
+                annotation_text=(
+                    f"Typical range ({self.typical_range_low:.2f}m"
+                    f" to {self.typical_range_high:.2f}m)"
+                ),
+                line_width=0,
+                fillcolor="dodgerblue",
+                opacity=0.15,
+            )
+
         fig.show()
+
+    def _build_subtitle(self) -> str | None:
+        if self.river_name is not None and self.catchment_name is not None:
+            return f"{self.river_name}, {self.catchment_name} catchment"
+        return None
