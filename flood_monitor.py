@@ -269,11 +269,35 @@ class MeasurementStation:
     def plot_map(self) -> None:
         self._require_loaded()
 
+        if self.lat is None or self.lon is None:
+            raise ValueError("Station coordinates are missing.")
+
+        label = self.label or f"Station {self.station_id}"
+
         fig = px.scatter_map(
-            lat=[self.lat],
-            lon=[self.lon],
-            hover_name=[self.label],
+            {
+                "lat": [self.lat],
+                "lon": [self.lon],
+                "level": [self.latest_reading.level if self.latest_reading else None],
+                "state": [self.state.title()],
+                "trend": [self.trend.title()],
+            },
+            lat="lat",
+            lon="lon",
+            hover_data={
+                "lat": False,
+                "lon": False,
+                "level": ":.2f",
+                "state": True,
+                "trend": True,
+            },
+            labels={"level": "Level (m)", "state": "State", "trend": "Trend"},
+            zoom=14,
+            title=label,
+            subtitle=self._build_subtitle(),
         )
+
+        fig.update_traces(marker={"size": 12, "color": "dodgerblue"})
 
         fig.show()
 
@@ -293,7 +317,7 @@ class MeasurementStation:
         timestamps = [r.timestamp for r in readings]
         levels = [r.level for r in readings]
 
-        label = self.label or f"station {self.station_id}"
+        label = self.label or f"Station {self.station_id}"
 
         fig = px.line(
             x=timestamps,
