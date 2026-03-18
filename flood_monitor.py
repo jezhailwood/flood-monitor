@@ -284,20 +284,20 @@ class MeasurementStation:
             },
             lat="lat",
             lon="lon",
-            hover_data={
-                "lat": False,
-                "lon": False,
-                "level": ":.2f",
-                "state": True,
-                "trend": True,
-            },
-            labels={"level": "Level (m)", "state": "State", "trend": "Trend"},
+            custom_data=["level", "state", "trend"],
             zoom=14,
             title=label,
             subtitle=self._build_subtitle(),
         )
 
-        fig.update_traces(marker={"size": 12, "color": "dodgerblue"})
+        fig.update_traces(
+            hovertemplate=(
+                "Level: %{customdata[0]:.3f}m<br>"
+                "State: %{customdata[1]}<br>"
+                "Trend: %{customdata[2]}"
+            ),
+            marker={"size": 12, "color": "dodgerblue"},
+        )
 
         fig.show()
 
@@ -327,7 +327,11 @@ class MeasurementStation:
             subtitle=self._build_subtitle(),
         )
 
-        fig.update_traces(line={"width": 3, "color": "dodgerblue"}, fill="tozeroy")
+        fig.update_traces(
+            hovertemplate="Level: %{y:.3f}m<br>Time: %{x|%H:%M, %d %b %Y}",
+            line={"width": 3, "color": "dodgerblue"},
+            fill="tozeroy",
+        )
         fig.update_layout(hoverdistance=-1)
         fig.update_xaxes(
             tickformat="%H:%M\n%d %b %Y",
