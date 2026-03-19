@@ -37,7 +37,13 @@ class MeasurementStation:
         self.state: str | None = None
         self.trend: str | None = None
 
-        self._loaded = False
+    @classmethod
+    def from_api(
+        cls, station_id: str | int, api_client: APIClient
+    ) -> MeasurementStation:
+        station = cls(station_id, api_client)
+        station._load()
+        return station
 
     def _validate_station_id(self, station_id: str | int) -> None:
         if not isinstance(station_id, (str, int)):
@@ -52,7 +58,7 @@ class MeasurementStation:
         if isinstance(station_id, int) and station_id <= 0:
             raise ValueError("station_id must be a positive integer")
 
-    def load(self) -> None:
+    def _load(self) -> None:
         data = self.api_client.get(
             "flood-monitoring",
             "id",
@@ -78,12 +84,6 @@ class MeasurementStation:
 
         self.state = self._get_state()
         self.trend = self._get_trend()
-
-        self._loaded = True
-
-    def _require_loaded(self) -> None:
-        if not self._loaded:
-            raise RuntimeError("MeasurementStation not loaded. Call load() first.")
 
     def _build_reading(self, data: dict | None) -> Reading | None:
         if data is None:
@@ -267,8 +267,6 @@ class MeasurementStation:
         return params
 
     def plot_map(self) -> None:
-        self._require_loaded()
-
         if self.lat is None or self.lon is None:
             raise ValueError("Station coordinates are missing.")
 
@@ -308,8 +306,6 @@ class MeasurementStation:
         end: datetime | None = None,
         days: int | None = None,
     ) -> None:
-        self._require_loaded()
-
         readings = self.get_readings(start=start, end=end, days=days)
         if not readings:
             raise ValueError("No readings available for the requested time range.")
