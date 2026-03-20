@@ -35,7 +35,7 @@ class MeasurementStation:
         self.typical_range_high: float | None = None
         self.typical_range_low: float | None = None
         self.state: str | None = None
-        self.trend: str | None = None
+        self._trend: str | None = None
 
     @classmethod
     def from_api(
@@ -44,6 +44,12 @@ class MeasurementStation:
         station = cls(station_id, api_client)
         station._load()
         return station
+
+    @property
+    def trend(self) -> str:
+        if self._trend is None:
+            self._trend = self._get_trend()
+        return self._trend
 
     def _validate_station_id(self, station_id: str | int) -> None:
         if not isinstance(station_id, (str, int)):
@@ -83,7 +89,6 @@ class MeasurementStation:
         self.typical_range_low = self._parse_level(stage_scale.get("typicalRangeLow"))
 
         self.state = self._get_state()
-        self.trend = self._get_trend()
 
     def _build_reading(self, data: dict | None) -> Reading | None:
         if data is None:
