@@ -37,6 +37,19 @@ class MeasurementStation:
         self.state: str | None = None
         self._trend: str | None = None
 
+    def _validate_station_id(self, station_id: str | int) -> None:
+        if not isinstance(station_id, (str, int)):
+            raise TypeError(
+                f"station_id must be str or int, got {type(station_id).__name__}"
+            )
+        if isinstance(station_id, str):
+            if not station_id.strip():
+                raise ValueError("station_id must not be empty or blank")
+            if station_id != station_id.strip():
+                raise ValueError("station_id must not have surrounding whitespace")
+        if isinstance(station_id, int) and station_id <= 0:
+            raise ValueError("station_id must be a positive integer")
+
     @classmethod
     def from_api(
         cls, station_id: str | int, api_client: APIClient
@@ -51,18 +64,28 @@ class MeasurementStation:
             self._trend = self._compute_trend()
         return self._trend
 
-    def _validate_station_id(self, station_id: str | int) -> None:
-        if not isinstance(station_id, (str, int)):
-            raise TypeError(
-                f"station_id must be str or int, got {type(station_id).__name__}"
-            )
-        if isinstance(station_id, str):
-            if not station_id.strip():
-                raise ValueError("station_id must not be empty or blank")
-            if station_id != station_id.strip():
-                raise ValueError("station_id must not have surrounding whitespace")
-        if isinstance(station_id, int) and station_id <= 0:
-            raise ValueError("station_id must be a positive integer")
+    def _compute_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
+        readings = self.get_readings(limit=limit)
+
+        if len(readings) < 2:
+            return "unknown"
+
+        # Convert cm/h to m/s.
+        threshold_ms = threshold / 360_000
+
+        # Express timestamps as elapsed seconds from the first reading.
+        t0 = readings[0].timestamp.timestamp()
+        x = np.array([r.timestamp.timestamp() - t0 for r in readings])
+        y = np.array([r.level for r in readings])
+
+        # slope gives rate of change in m/s.
+        slope, _ = np.polyfit(x, y, 1)
+
+        if slope > threshold_ms:
+            return "rising"
+        if slope < -threshold_ms:
+            return "falling"
+        return "steady"
 
     def _load(self) -> None:
         data = self.api_client.get(
@@ -136,29 +159,6 @@ class MeasurementStation:
         if latest_reading_level >= self.typical_range_high:
             return "high"
         return "normal"
-
-    def _compute_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
-        readings = self.get_readings(limit=limit)
-
-        if len(readings) < 2:
-            return "unknown"
-
-        # Convert cm/h to m/s.
-        threshold_ms = threshold / 360_000
-
-        # Express timestamps as elapsed seconds from the first reading.
-        t0 = readings[0].timestamp.timestamp()
-        x = np.array([r.timestamp.timestamp() - t0 for r in readings])
-        y = np.array([r.level for r in readings])
-
-        # slope gives rate of change in m/s.
-        slope, _ = np.polyfit(x, y, 1)
-
-        if slope > threshold_ms:
-            return "rising"
-        if slope < -threshold_ms:
-            return "falling"
-        return "steady"
 
     def get_readings(
         self,
