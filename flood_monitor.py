@@ -48,7 +48,7 @@ class MeasurementStation:
     @property
     def trend(self) -> str:
         if self._trend is None:
-            self._trend = self._get_trend()
+            self._trend = self._compute_trend()
         return self._trend
 
     def _validate_station_id(self, station_id: str | int) -> None:
@@ -88,7 +88,7 @@ class MeasurementStation:
         self.typical_range_high = self._parse_level(stage_scale.get("typicalRangeHigh"))
         self.typical_range_low = self._parse_level(stage_scale.get("typicalRangeLow"))
 
-        self.state = self._get_state()
+        self.state = self._compute_state()
 
     def _build_reading(self, data: dict | None) -> Reading | None:
         if data is None:
@@ -119,7 +119,7 @@ class MeasurementStation:
             return None
         return float(level)
 
-    def _get_state(self) -> str:
+    def _compute_state(self) -> str:
         latest_reading_level = (
             self.latest_reading.level if self.latest_reading else None
         )
@@ -137,7 +137,7 @@ class MeasurementStation:
             return "high"
         return "normal"
 
-    def _get_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
+    def _compute_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
         readings = self.get_readings(limit=limit)
 
         if len(readings) < 2:
