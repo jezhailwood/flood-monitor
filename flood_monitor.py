@@ -1,3 +1,21 @@
+"""River-level monitoring using the Environment Agency real time flood-monitoring API.
+
+This module provides `MeasurementStation`, which fetches and encapsulates metadata and
+river-level readings for a single measurement station. Readings can be retrieved as
+structured data or visualised directly as an interactive map or time-series chart.
+
+Use `MeasurementStation.from_api` to construct a populated instance:
+
+    from api_client import APIClient
+    from flood_monitor import MeasurementStation
+
+    station = MeasurementStation.from_api(
+        2642, APIClient("https://environment.data.gov.uk")
+    )
+    station.plot_map()
+    station.plot_chart(days=5)
+"""
+
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from operator import attrgetter
@@ -12,11 +30,44 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True, slots=True)
 class Reading:
+    """A single river-level reading from a measurement station.
+
+    Attributes:
+        timestamp: The UTC datetime at which the reading was recorded.
+        level: The measured river level in metres.
+    """
+
     timestamp: datetime
     level: float
 
 
 class MeasurementStation:
+    """A river-level measurement station.
+
+    Holds station metadata, the latest river-level reading, historical extremes,
+    and the typical level range. Use the `from_api` class method to construct a fully
+    populated instance.
+
+    Attributes:
+        station_id: The unique station identifier used in API requests.
+        api_client: The HTTP client used to query the API.
+        label: Human-readable station name, if available.
+        river_name: Name of the river associated with this station, if available.
+        catchment_name: Name of the river catchment, if available.
+        lon: Longitude of the station in decimal degrees, if available.
+        lat: Latitude of the station in decimal degrees, if available.
+        latest_reading: The most recent river-level reading, if available.
+        highest_recent: The highest recent river-level reading, if available.
+        max_on_record: The highest recorded reading, if available.
+        min_on_record: The lowest recorded reading, if available.
+        typical_range_high: The top of the typical range band in metres,
+            if available.
+        typical_range_low: The bottom of the typical range band in metres,
+            if available.
+        state: Current level state; one of `"low"`, `"normal"`, `"high"`,
+            or `"unknown"`.
+    """
+
     def __init__(self, station_id: str | int, api_client: APIClient) -> None:
         self._validate_station_id(station_id)
 
@@ -54,17 +105,59 @@ class MeasurementStation:
     def from_api(
         cls, station_id: str | int, api_client: APIClient
     ) -> MeasurementStation:
+        """Fetch station metadata from the API and return a populated instance.
+
+        This is the intended constructor. It creates a `MeasurementStation`, immediately
+        fetches its metadata from the API and returns the populated object.
+
+        Args:
+            station_id: The station identifier. May be a non-empty, unpadded string
+                or a positive integer.
+            api_client: An `APIClient` configured with the API base URL,
+                eg `APIClient("https://environment.data.gov.uk")`.
+
+        Returns:
+            A `MeasurementStation` populated with metadata from the API.
+
+        Raises:
+            TypeError: If `station_id` is not a `str` or `int`.
+            ValueError: If `station_id` is blank, has surrounding whitespace, or is a
+                non-positive integer.
+            requests.HTTPError: If the response status code indicates an error.
+            requests.RequestException: If a network-level error occurs.
+        """
         station = cls(station_id, api_client)
         station._load()
         return station
 
     @property
     def trend(self) -> str:
+        """The recent river-level trend, computed lazily from the latest readings.
+
+        Fetches the most recent readings and fits a linear regression to estimate the
+        rate of change. The result is cached after the first access.
+
+        Returns:
+            One of `"rising"`, `"falling"`, `"steady"`, or `"unknown"` if fewer than
+            two readings are available.
+        """
         if self._trend is None:
             self._trend = self._compute_trend()
         return self._trend
 
     def _compute_trend(self, threshold: float = 1.0, limit: int = 5) -> str:
+        """Compute the current river-level trend from recent readings.
+
+        Fits a least-squares linear regression to the `limit` most recent readings and
+        classifies the slope against `threshold`.
+
+        Args:
+            threshold: Rate-of-change threshold in cm/h. Slopes with an absolute rate of
+                change above this are classified as `"rising"` or `"falling"`;
+                those within it are `"steady"`. Defaults to `1.0`cm/h.
+            limit: Number of recent readings to include in the regression.
+                Defaults to `5`.
+        """
         readings = self.get_readings(limit=limit)
 
         if len(readings) < 2:
@@ -169,6 +262,32 @@ class MeasurementStation:
         limit: int | None = None,
         reverse: bool = False,
     ) -> list[Reading]:
+        """Fetch river-level readings for this station from the API.
+
+        By default, returns the most recent available readings in chronological order.
+        Supply `days` for a rolling window, or `start`/`end` for an explicit date range.
+
+        Args:
+            start: Inclusive start of the time range. Required if `end` is given.
+            end: Inclusive end of the time range. Must be later than `start`.
+                If omitted, the range is open-ended from `start`.
+            days: Number of days of history to fetch, counting back from now.
+                Mutually exclusive with `start` and `end`.
+            limit: Maximum number of readings to return.
+            reverse: If `True`, return readings in reverse chronological order.
+                Defaults to `False` (chronological).
+
+        Returns:
+            A list of `Reading` objects sorted by timestamp, empty if no readings match.
+
+        Raises:
+            TypeError: If any argument is the wrong type.
+            ValueError: If argument values or combinations are invalid (eg `days` used
+                alongside `start`/`end`, `end` without `start`, mismatched timezone
+                awareness, or `start >= end`).
+            requests.HTTPError: If the response status code indicates an error.
+            requests.RequestException: If a network-level error occurs.
+        """
         self._validate_readings_args(start=start, end=end, days=days, limit=limit)
 
         if days is not None:
@@ -272,6 +391,14 @@ class MeasurementStation:
         return params
 
     def plot_map(self) -> None:
+        """Display an interactive map showing the station's location.
+
+        Renders a Plotly scatter-map centred on the station. The hover tooltip shows the
+        latest river level, current state and trend.
+
+        Raises:
+            ValueError: If the station's latitude or longitude is not available.
+        """
         if self.lat is None or self.lon is None:
             raise ValueError("Station coordinates are missing.")
 
@@ -311,6 +438,26 @@ class MeasurementStation:
         end: datetime | None = None,
         days: int | None = None,
     ) -> None:
+        """Display an interactive time-series chart of river-level readings.
+
+        Fetches readings for the requested period and renders a filled Plotly line
+        chart. Where available, reference lines for the all-time maximum and minimum
+        are drawn, and the typical level range is highlighted as a shaded band.
+
+        The `start`, `end` and `days` arguments are forwarded directly to
+        `get_readings`; their validation rules apply here too.
+
+        Args:
+            start: Inclusive start of the time range.
+            end: Inclusive end of the time range.
+            days: Number of days of history to chart, counting back from now.
+
+        Raises:
+            ValueError: If no readings are available for the requested range, or if
+                the `start`/`end`/`days` arguments are invalid.
+            requests.HTTPError: If the response status code indicates an error.
+            requests.RequestException: If a network-level error occurs.
+        """
         readings = self.get_readings(start=start, end=end, days=days)
         if not readings:
             raise ValueError("No readings available for the requested time range.")
