@@ -40,6 +40,7 @@ class APIClient:
         """
         self.base_url = base_url.strip().rstrip("/") + "/"
         self.timeout = timeout
+        self._session = requests.Session()
 
     def get(
         self,
@@ -74,6 +75,6 @@ class APIClient:
         path = "/".join(str(p).strip("/") for p in path_segments)
         url = urljoin(self.base_url, path)
         effective_timeout = self.timeout if timeout is None else timeout
-        response = requests.get(url, params=params, timeout=effective_timeout)
+        response = self._session.get(url, params=params, timeout=effective_timeout)
         response.raise_for_status()
         return response.json()
