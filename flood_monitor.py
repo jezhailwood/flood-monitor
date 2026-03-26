@@ -4,6 +4,10 @@ This module provides `MeasurementStation`, which fetches and encapsulates metada
 river-level readings for a single measurement station. Readings can be retrieved as
 structured data or visualised directly as an interactive map or time-series chart.
 
+The API provides readings from midnight UTC on the date `MAX_HISTORY_DAYS` days ago
+through to the present. Requests for readings outside this window will raise
+a `ValueError`.
+
 Use `MeasurementStation.from_api` to construct a populated instance:
 
     from api_client import APIClient
@@ -17,7 +21,7 @@ Use `MeasurementStation.from_api` to construct a populated instance:
 """
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from operator import attrgetter
 from typing import TYPE_CHECKING
 
@@ -26,6 +30,10 @@ import plotly.express as px
 
 if TYPE_CHECKING:
     from .api_client import APIClient
+
+
+MAX_HISTORY_DAYS = 29  # API hard upper limit on reading history.
+_MAX_READINGS = 10_000  # API hard upper limit on number of readings returned.
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +55,9 @@ class MeasurementStation:
     Holds station metadata, the latest river-level reading, historical extremes,
     and the typical level range. Use the `from_api` class method to construct a fully
     populated instance.
+
+    Reading history is limited to midnight UTC on the date `MAX_HISTORY_DAYS` days ago
+    through to the present; see `get_readings()` for details.
 
     Attributes:
         station_id: The unique station identifier used in API requests.
@@ -269,10 +280,11 @@ class MeasurementStation:
 
         Args:
             start: Inclusive start of the time range. Required if `end` is given.
+                Cannot predate midnight UTC on the date `MAX_HISTORY_DAYS` days ago.
             end: Inclusive end of the time range. Must be later than `start`.
                 If omitted, the range is open-ended from `start`.
-            days: Number of days of history to fetch, counting back from now.
-                Mutually exclusive with `start` and `end`.
+            days: Number of days of history to fetch, counting back from now. Must be
+                <= `MAX_HISTORY_DAYS`. Mutually exclusive with `start` and `end`.
             limit: Maximum number of readings to return.
             reverse: If `True`, return readings in reverse chronological order.
                 Defaults to `False` (chronological).
@@ -284,7 +296,8 @@ class MeasurementStation:
             TypeError: If any argument is the wrong type.
             ValueError: If argument values or combinations are invalid (eg `days` used
                 alongside `start`/`end`, `end` without `start`, mismatched timezone
-                awareness, or `start >= end`).
+                awareness, or `start >= end`), or if the resolved `start` predates the
+                API's `MAX_HISTORY_DAYS`-day history window.
             requests.HTTPError: If the response status code indicates an error.
             requests.RequestException: If a network-level error occurs.
         """
@@ -294,6 +307,8 @@ class MeasurementStation:
             now = datetime.now(UTC)
             start = now - timedelta(days=days)
             end = None
+
+        self._validate_start_within_history(start)
 
         params = self._build_readings_params(start=start, end=end, limit=limit)
 
@@ -363,6 +378,25 @@ class MeasurementStation:
             if start >= end:
                 raise ValueError("start must be < end")
 
+    def _validate_start_within_history(self, start: datetime | None) -> None:
+        if start is None:
+            return
+        today = datetime.now(UTC).date()
+        earliest = datetime.combine(
+            today - timedelta(days=MAX_HISTORY_DAYS),
+            time.min,
+            tzinfo=UTC,
+        )
+        # Normalise for comparison if start is naive.
+        cmp_earliest = (
+            earliest.replace(tzinfo=None) if start.tzinfo is None else earliest
+        )
+        if start < cmp_earliest:
+            raise ValueError(
+                f"start is beyond the {MAX_HISTORY_DAYS}-day API history limit"
+                f" (earliest available: {earliest.date().isoformat()})"
+            )
+
     def _build_readings_params(
         self,
         *,
@@ -370,10 +404,10 @@ class MeasurementStation:
         end: datetime | None,
         limit: int | None,
     ) -> dict[str, str]:
-        params = {"parameter": "level"}
-
-        if limit is not None:
-            params["_limit"] = str(limit)
+        params = {
+            "parameter": "level",
+            "_limit": str(limit if limit is not None else _MAX_READINGS),
+        }
 
         # Most recent readings (no date filter).
         if start is None and end is None:
@@ -445,7 +479,8 @@ class MeasurementStation:
         are drawn, and the typical level range is highlighted as a shaded band.
 
         The `start`, `end` and `days` arguments are forwarded directly to
-        `get_readings`; their validation rules apply here too.
+        `get_readings`; their validation rules apply here too, including the API's
+        `MAX_HISTORY_DAYS`-day history limit.
 
         Args:
             start: Inclusive start of the time range.
