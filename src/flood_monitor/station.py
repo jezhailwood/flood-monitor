@@ -29,7 +29,7 @@ import numpy as np
 import plotly.express as px
 
 if TYPE_CHECKING:
-    from .api_client import APIClient
+    from api_client import APIClient
 
 
 MAX_HISTORY_DAYS = 29  # API hard upper limit on reading history.
