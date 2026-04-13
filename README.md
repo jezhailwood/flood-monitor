@@ -7,16 +7,18 @@ A Python library for fetching and visualising river-level data from the [Environ
 Install from GitHub using pip:
 
 ```bash
-pip install "flood-monitor @ git+https://github.com/jezhailwood/flood-monitor.git"
+pip install "flood-monitor @ git+https://github.com/jezhailwood/flood-monitor.git@v0.1.0"
 ```
 
 Alternatively, add as a dependency in `pyproject.toml`:
 
 ```toml
 dependencies = [
-    "flood-monitor @ git+https://github.com/jezhailwood/flood-monitor.git",
+    "flood-monitor @ git+https://github.com/jezhailwood/flood-monitor.git@v0.1.0",
 ]
 ```
+
+Replace `v0.1.0` with the [latest release tag](https://github.com/jezhailwood/flood-monitor/tags).
 
 ## Quickstart
 
