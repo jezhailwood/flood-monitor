@@ -55,3 +55,7 @@ Full documentation is available via Python's built-in help:
 from flood_monitor import MeasurementStation
 help(MeasurementStation)
 ```
+
+## Licence
+
+Released under the [MIT Licence](LICENSE).
