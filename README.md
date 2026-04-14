@@ -49,12 +49,7 @@ station.plot_chart(days=7)  # Interactive time-series chart of readings from the
 
 ## API reference
 
-Full documentation is available via Python's built-in help:
-
-```python
-from flood_monitor import MeasurementStation
-help(MeasurementStation)
-```
+Full documentation is available at [jezhailwood.github.io/flood-monitor](https://jezhailwood.github.io/flood-monitor).
 
 ## Licence
 
