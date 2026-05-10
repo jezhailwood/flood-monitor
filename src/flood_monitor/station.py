@@ -1,4 +1,4 @@
-"""River-level monitoring using the Environment Agency real time flood-monitoring API.
+"""River-level monitoring using the Environment Agency real-time flood-monitoring API.
 
 This module provides `MeasurementStation`, which fetches and encapsulates metadata and
 river-level readings for a single measurement station. Readings can be retrieved as
