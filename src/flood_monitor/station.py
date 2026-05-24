@@ -192,12 +192,13 @@ class MeasurementStation:
         return "steady"
 
     def _load(self) -> None:
-        data = self.api_client.get(
+        response = self.api_client.get(
             "flood-monitoring",
             "id",
             "stations",
             self.station_id,
         )
+        data = response.json()
 
         items = data.get("items", {})
         stage_scale = items.get("stageScale", {})
@@ -312,7 +313,7 @@ class MeasurementStation:
 
         params = self._build_readings_params(start=start, end=end, limit=limit)
 
-        data = self.api_client.get(
+        response = self.api_client.get(
             "flood-monitoring",
             "id",
             "stations",
@@ -320,6 +321,7 @@ class MeasurementStation:
             "readings",
             params=params,
         )
+        data = response.json()
 
         readings = []
         for item in data.get("items", []):
