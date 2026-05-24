@@ -6,7 +6,7 @@ A Python library for fetching and visualising river-level data. It provides a cl
 
 Install from GitHub using pip:
 
-```bash
+```shell
 pip install "flood-monitor @ git+https://github.com/jezhailwood/flood-monitor.git@v0.1.0"
 ```
 
