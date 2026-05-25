@@ -2,7 +2,7 @@
 
 This module provides `MeasurementStation`, which fetches and encapsulates metadata and
 river-level readings for a single measurement station. Readings can be retrieved as
-structured data or visualised directly as an interactive map or time-series chart.
+structured data or visualised as an interactive map or time-series chart.
 
 The API provides readings from midnight UTC on the date `MAX_HISTORY_DAYS` days ago
 through to the present. Requests for readings outside this window will raise
@@ -16,8 +16,8 @@ Use `MeasurementStation.from_api` to construct a populated instance:
     station = MeasurementStation.from_api(
         2642, APIClient("https://environment.data.gov.uk")
     )
-    station.plot_map()
-    station.plot_chart(days=5)
+    station.get_map_figure().show()
+    station.get_chart_figure(days=5).show()
 """
 
 from dataclasses import dataclass
@@ -27,6 +27,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import plotly.express as px
+from plotly.graph_objects import Figure
 
 if TYPE_CHECKING:
     from api_client import APIClient
@@ -426,11 +427,14 @@ class MeasurementStation:
         params["enddate"] = end.date().isoformat()
         return params
 
-    def plot_map(self) -> None:
-        """Display an interactive map showing the station's location.
+    def get_map_figure(self) -> Figure:
+        """Build and return an interactive map showing the station's location.
 
-        Renders a Plotly scatter-map centred on the station. The hover tooltip shows the
+        Returns a Plotly scatter-map centred on the station. The hover tooltip shows the
         latest river level, current state and trend.
+
+        Returns:
+            A Plotly `Figure` object.
 
         Raises:
             ValueError: If the station's latitude or longitude is not available.
@@ -465,18 +469,18 @@ class MeasurementStation:
             marker={"size": 12, "color": "dodgerblue"},
         )
 
-        fig.show()
+        return fig
 
-    def plot_chart(
+    def get_chart_figure(
         self,
         *,
         start: datetime | None = None,
         end: datetime | None = None,
         days: int | None = None,
-    ) -> None:
-        """Display an interactive time-series chart of river-level readings.
+    ) -> Figure:
+        """Build and return an interactive time-series chart of river-level readings.
 
-        Fetches readings for the requested period and renders a filled Plotly line
+        Fetches readings for the requested period and returns a filled Plotly line
         chart. Where available, reference lines for the all-time maximum and minimum
         are drawn, and the typical level range is highlighted as a shaded band.
 
@@ -488,6 +492,9 @@ class MeasurementStation:
             start: Inclusive start of the time range.
             end: Inclusive end of the time range.
             days: Number of days of history to chart, counting back from now.
+
+        Returns:
+            A Plotly `Figure` object.
 
         Raises:
             ValueError: If no readings are available for the requested range, or if
@@ -570,7 +577,7 @@ class MeasurementStation:
                 opacity=0.15,
             )
 
-        fig.show()
+        return fig
 
     def _build_subtitle(self) -> str | None:
         if self.river_name is not None and self.catchment_name is not None:
