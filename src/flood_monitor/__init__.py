@@ -5,8 +5,8 @@ flood-monitoring API metadata and readings for a given measurement station, incl
 the latest level, historical extremes, typical range, current state and trend. Readings
 can be retrieved as structured data for a configurable time window, or returned as
 interactive map and chart figures.
-
-See `flood_monitor.station` for full usage details.
 """
 
 from .station import MeasurementStation, Reading
+
+__all__ = ["MeasurementStation", "Reading"]
